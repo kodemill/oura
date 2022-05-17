@@ -3,7 +3,13 @@ use std::{sync::Arc, time::Duration};
 use reqwest::blocking::Client;
 use serde::Serialize;
 
-use crate::{model::Event, pipelining::StageReceiver, sinks::ErrorPolicy, utils::Utils, Error};
+use crate::{
+    model::Event,
+    pipelining::StageReceiver,
+    sinks::ErrorPolicy,
+    utils::{retry, Utils},
+    Error,
+};
 
 #[derive(Serialize)]
 struct RequestBody {
@@ -26,36 +32,14 @@ impl From<Event> for RequestBody {
     }
 }
 
-fn execute_fallible_request(
-    client: &Client,
-    url: &str,
-    body: &RequestBody,
-    policy: &ErrorPolicy,
-    retry_quota: usize,
-    backoff_delay: Duration,
-) -> Result<(), Error> {
+fn execute_fallible_request(client: &Client, url: &str, body: &RequestBody) -> Result<(), Error> {
     let request = client.post(url).json(body).build()?;
 
-    let result = client
+    client
         .execute(request)
-        .and_then(|res| res.error_for_status());
+        .and_then(|res| res.error_for_status())?;
 
-    match (result, policy, retry_quota) {
-        (Ok(_), _, _) => {
-            log::info!("successful http request to webhook");
-            Ok(())
-        }
-        (Err(x), ErrorPolicy::Exit, 0) => Err(x.into()),
-        (Err(x), ErrorPolicy::Continue, 0) => {
-            log::warn!("failed to send webhook request: {:?}", x);
-            Ok(())
-        }
-        (Err(x), _, quota) => {
-            log::warn!("failed attempt to execute webhook request: {:?}", x);
-            std::thread::sleep(backoff_delay);
-            execute_fallible_request(client, url, body, policy, quota - 1, backoff_delay)
-        }
-    }
+    Ok(())
 }
 
 pub(crate) fn request_loop(
@@ -63,7 +47,7 @@ pub(crate) fn request_loop(
     client: &Client,
     url: &str,
     error_policy: &ErrorPolicy,
-    max_retries: usize,
+    max_retries: u32,
     backoff_delay: Duration,
     utils: Arc<Utils>,
 ) -> Result<(), Error> {
@@ -73,7 +57,25 @@ pub(crate) fn request_loop(
 
         let body = RequestBody::from(event);
 
-        execute_fallible_request(client, url, &body, error_policy, max_retries, backoff_delay)?;
+        let result = retry::retry_operation(
+            || execute_fallible_request(client, url, &body),
+            &retry::Policy {
+                max_retries,
+                backoff_unit: backoff_delay,
+                backoff_factor: 2,
+                max_backoff: backoff_delay * 2,
+            },
+        );
+
+        match result {
+            Ok(()) => (),
+            Err(err) => match error_policy {
+                ErrorPolicy::Exit => return Err(err),
+                ErrorPolicy::Continue => {
+                    log::warn!("failed to send webhook request: {:?}", err);
+                }
+            },
+        }
     }
 
     Ok(())
