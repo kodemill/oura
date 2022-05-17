@@ -15,11 +15,11 @@ pub struct Config {
     pub topic: String,
     pub credentials: String,
     pub error_policy: Option<ErrorPolicy>,
-    pub max_retries: Option<usize>,
+    pub max_retries: Option<u32>,
     pub backoff_delay: Option<u64>,
 }
 
-const DEFAULT_MAX_RETRIES: usize = 20;
+const DEFAULT_MAX_RETRIES: u32 = 20;
 const DEFAULT_BACKOFF_DELAY: u64 = 5_000;
 
 impl SinkProvider for WithUtils<Config> {
