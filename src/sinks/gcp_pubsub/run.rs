@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use async_recursion::async_recursion;
 use cloud_pubsub::{error::Error, Client, Topic};
 use serde_json::json;
 
@@ -11,7 +10,6 @@ use crate::{
     utils::{retry, Utils},
 };
 
-#[async_recursion]
 async fn send_pubsub_msg(client: &Topic, event: &Event) -> Result<(), Error> {
     let body = json!(event).to_string();
 
