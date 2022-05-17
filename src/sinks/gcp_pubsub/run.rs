@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use cloud_pubsub::{error::Error, Client, Topic};
 use serde_json::json;
@@ -23,8 +23,7 @@ pub fn writer_loop(
     credentials: String,
     topic_name: String,
     error_policy: &ErrorPolicy,
-    max_retries: u32,
-    backoff_delay: Duration,
+    retry_policy: &retry::Policy,
     utils: Arc<Utils>,
 ) -> Result<(), crate::Error> {
     let rt = tokio::runtime::Builder::new_current_thread()
@@ -41,12 +40,7 @@ pub fn writer_loop(
 
         let result = retry::retry_operation(
             || rt.block_on(send_pubsub_msg(&topic, &event)),
-            &retry::Policy {
-                max_retries,
-                backoff_unit: backoff_delay,
-                backoff_factor: 2,
-                max_backoff: backoff_delay * 2,
-            },
+            retry_policy,
         );
 
         match result {

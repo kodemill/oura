@@ -1,5 +1,8 @@
 use std::{fmt::Debug, ops::Mul, time::Duration};
 
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize, Default, Copy, Clone)]
 pub struct Policy {
     pub max_retries: u32,
     pub backoff_unit: Duration,

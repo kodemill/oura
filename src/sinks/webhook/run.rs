@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use reqwest::blocking::Client;
 use serde::Serialize;
@@ -47,8 +47,7 @@ pub(crate) fn request_loop(
     client: &Client,
     url: &str,
     error_policy: &ErrorPolicy,
-    max_retries: u32,
-    backoff_delay: Duration,
+    retry_policy: &retry::Policy,
     utils: Arc<Utils>,
 ) -> Result<(), Error> {
     for event in input.iter() {
@@ -59,12 +58,7 @@ pub(crate) fn request_loop(
 
         let result = retry::retry_operation(
             || execute_fallible_request(client, url, &body),
-            &retry::Policy {
-                max_retries,
-                backoff_unit: backoff_delay,
-                backoff_factor: 2,
-                max_backoff: backoff_delay * 2,
-            },
+            retry_policy,
         );
 
         match result {

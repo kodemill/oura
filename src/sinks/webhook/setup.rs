@@ -6,7 +6,7 @@ use serde::Deserialize;
 use crate::{
     pipelining::{BootstrapResult, SinkProvider, StageReceiver},
     sinks::ErrorPolicy,
-    utils::WithUtils,
+    utils::{retry, WithUtils},
     Error,
 };
 
@@ -21,8 +21,7 @@ pub struct Config {
     pub headers: Option<HashMap<String, String>>,
     pub timeout: Option<u64>,
     pub error_policy: Option<ErrorPolicy>,
-    pub max_retries: Option<u32>,
-    pub backoff_delay: Option<u64>,
+    pub retry_policy: Option<retry::Policy>,
 }
 
 fn build_headers_map(config: &Config) -> Result<HeaderMap, Error> {
@@ -69,24 +68,18 @@ impl SinkProvider for WithUtils<Config> {
             .cloned()
             .unwrap_or(ErrorPolicy::Exit);
 
-        let max_retries = self.inner.max_retries.unwrap_or(DEFAULT_MAX_RETRIES);
-
-        let backoff_delay =
-            Duration::from_millis(self.inner.backoff_delay.unwrap_or(DEFAULT_BACKOFF_DELAY));
+        let retry_policy = self.inner.retry_policy.unwrap_or(retry::Policy {
+            max_retries: DEFAULT_MAX_RETRIES,
+            backoff_unit: Duration::from_millis(DEFAULT_BACKOFF_DELAY),
+            backoff_factor: 2,
+            max_backoff: Duration::from_millis(DEFAULT_BACKOFF_DELAY * 2),
+        });
 
         let utils = self.utils.clone();
 
         let handle = std::thread::spawn(move || {
-            request_loop(
-                input,
-                &client,
-                &url,
-                &error_policy,
-                max_retries,
-                backoff_delay,
-                utils,
-            )
-            .expect("request loop failed")
+            request_loop(input, &client, &url, &error_policy, &retry_policy, utils)
+                .expect("request loop failed")
         });
 
         Ok(handle)
