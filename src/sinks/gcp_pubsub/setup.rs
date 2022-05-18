@@ -37,7 +37,7 @@ impl SinkProvider for WithUtils<Config> {
             max_retries: DEFAULT_MAX_RETRIES,
             backoff_unit: Duration::from_millis(DEFAULT_BACKOFF_DELAY),
             backoff_factor: 2,
-            max_backoff: Duration::from_millis(DEFAULT_BACKOFF_DELAY * 2),
+            max_backoff: Duration::from_millis(DEFAULT_BACKOFF_DELAY * 20),
         });
 
         let utils = self.utils.clone();
