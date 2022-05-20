@@ -1,13 +1,24 @@
 use std::{fmt::Debug, ops::Mul, time::Duration};
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 #[derive(Debug, Deserialize, Default, Copy, Clone)]
 pub struct Policy {
     pub max_retries: u32,
+    #[serde(deserialize_with = "deserialize_duration")]
     pub backoff_unit: Duration,
     pub backoff_factor: u32,
+    #[serde(deserialize_with = "deserialize_duration")]
     pub max_backoff: Duration,
+}
+
+fn deserialize_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let millis = u64::deserialize(deserializer)?;
+
+    Ok(Duration::from_millis(millis))
 }
 
 fn compute_backoff_delay(policy: &Policy, retry: u32) -> Duration {

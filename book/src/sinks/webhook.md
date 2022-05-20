@@ -12,9 +12,13 @@ type = "Webhook"
 url = "https://endpoint:5000/events"
 authorization = "user:pass"
 timeout = 30000
-error_policy = "Retry"
+error_policy = "Continue"
+
+[sink.retry_policy]
 max_retries = 30
-backoff_delay = 5000
+backoff_unit =  5000
+backoff_factor = 2
+max_backoff = 100000
 
 [sink.headers]
 extra_header_1 = "abc"
