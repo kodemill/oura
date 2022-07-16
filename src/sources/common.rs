@@ -214,11 +214,11 @@ pub enum IntersectArg {
     Fallbacks(Vec<PointArg>),
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub struct FinalizeConfig {
-    max_block_quantity: Option<u64>,
-    max_block_slot: Option<u64>,
-    until_hash: Option<String>,
+    pub max_block_quantity: Option<u64>,
+    pub max_block_slot: Option<u64>,
+    pub until_hash: Option<String>,
 }
 
 pub fn should_finalize(
